@@ -1074,6 +1074,12 @@ void Client::Impl::SendQuery(const Query& query, bool finalize) {
 
     /// Per query settings
     if (server_info_.revision >= DBMS_MIN_REVISION_WITH_SETTINGS_SERIALIZED_AS_STRINGS) {
+        // The compression flag enables compression; this setting selects the response codec.
+        if (compression_ == CompressionState::Enable && query.GetQuerySettings().count("network_compression_method") == 0) {
+            WireFormat::WriteString(*output_, "network_compression_method");
+            WireFormat::WriteVarint64(*output_, 0);
+            WireFormat::WriteString(*output_, options_.compression_method == CompressionMethod::ZSTD ? "ZSTD" : "LZ4");
+        }
         for(const auto& [name, field] : query.GetQuerySettings()) {
             WireFormat::WriteString(*output_, name);
             WireFormat::WriteVarint64(*output_, field.flags);

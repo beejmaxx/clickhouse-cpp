@@ -238,3 +238,19 @@ TEST(ClientProtocol, WellFormedSelectResponseSucceeds) {
     }));
     EXPECT_EQ(blocks, 1u);
 }
+
+TEST(ClientProtocol, CompressionWithOldServerRevision) {
+    std::vector<uint8_t> script = kServerHello;
+    script.push_back(0x05); // ServerCodes::EndOfStream
+
+    for (const auto method : {CompressionMethod::LZ4, CompressionMethod::ZSTD}) {
+        Client client(ScriptedClientOptions().SetCompressionMethod(method),
+                      std::make_unique<ScriptedSocketFactory>(script));
+        // Older servers cannot receive string-serialized query settings.
+        EXPECT_NO_THROW(client.Execute("SELECT 1"));
+
+        Query query("SELECT 1");
+        query.SetSetting("network_compression_method", {"LZ4"});
+        EXPECT_THROW(client.Execute(query), UnimplementedError);
+    }
+}
